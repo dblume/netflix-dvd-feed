@@ -1,0 +1,14 @@
+[global]
+domain = yourdomain.com
+name = John Doe
+url_base = netflixdvds.%(domain)s
+logfile = logfile.txt
+rss_base = dvds_at_home_feed
+[smtp]
+from = dvds_at_home_script@sample.com
+user = smtp_username
+password = mooltipass
+[imap]
+mailbox = mail.yourmaildomain.com
+user = username@yourmaildomain.com
+password = mooltipass
