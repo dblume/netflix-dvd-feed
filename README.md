@@ -1,12 +1,12 @@
 # netflix-dvd-feed
-netflix-dvd-feed is a script that scans email from NetFlix and creates an RSS feed for DVDs.  It should be run as a cronjob.  It's a replacement for their AtHomeRSS feed.
+netflix-dvd-feed is a script that scans email from NetFlix and creates an RSS feed for DVDs.  It should be run as a cronjob.  It's a replacement for their AtHomeRSS feed, which was discontinued in September 2012.
 
 ## Getting Started
 
 1. Forward all your email from Netflix to a new mailbox, say, netflix@yourdomain.com
 2. Rename netflix-dvd-feed.cfg.sample to netflix-dvd-feed.cfg
 3. Customize the variables in netflix-dvd-feed.cfg (More on this below.)
-4. Set up a cronjob that runs the script every day.
+4. Set up a cronjob that runs netflix-dvd-feed every day.
 5. Bob's your uncle.
 
 ## What It Does
@@ -31,7 +31,7 @@ netflix-dvd-feed.cfg looks like this:
     name = John Doe
     url_base = netflixdvds.%(domain)s
     logfile = logfile.txt
-    rss_base = dvds_at_home_feed
+    rss_base = AtHomeRSS
     [smtp]
     from = dvds_at_home_script@yourdomain.com
     to = johnd@yourdomain.com
@@ -50,7 +50,9 @@ This section refers to stuff like the name and location of the new RSS file.
 **name**: The name of the person to whom the NetFlix feed belongs.  
 **url_base**: The base of the URL that the RSS feed is at.  
 **logfile**: The name of the logfile.  
-**rss_base**: The base filename of the RSS file.  
+**rss_base**: The base filename of the RSS file.  '.xml' will be appended to the end.
+
+Given the example above, the complete URL for the feed would be `http://netfixdvds.yourdomain.com/AtHomeRSS.xml`.
 
 ### The SMTP Section
 
