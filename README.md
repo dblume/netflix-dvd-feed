@@ -39,7 +39,7 @@ netflix-dvd-feed.cfg looks like this:
     password = mooltipass
     [imap]
     mailbox = mail.yourdomain.com
-    user = username@yourdomain.com
+    user = netflix@yourdomain.com
     password = mooltipass
 
 ### The Global Section
@@ -52,7 +52,7 @@ This section refers to stuff like the name and location of the new RSS file.
 **logfile**: The name of the logfile.  
 **rss_base**: The base filename of the RSS file.  '.xml' will be appended to the end.
 
-Given the example above, the complete URL for the feed would be `http://netfixdvds.yourdomain.com/AtHomeRSS.xml`.
+Given the example above, the complete URL for the feed would be `http://netflixdvds.yourdomain.com/AtHomeRSS.xml`.
 
 ### The SMTP Section
 
@@ -68,7 +68,7 @@ This section is for when the script needs to email you that it ran into a proble
 This section refers to the mailbox to which you're forwarding your email from NetFlix.
 
 **mailbox**: The internet address of the email mailbox.  
-**user**: The IMAP username used to read the NetFlix email.  
+**user**: The user for the email address to which you've forwarded the NetFlix email.  
 **password**: The IMAP password.  
 
 ## Debugging
