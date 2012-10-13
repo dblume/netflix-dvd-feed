@@ -46,28 +46,28 @@ netflix-dvd-feed.cfg looks like this:
 
 This section refers to stuff like the name and location of the new RSS file.
 
-**domain**: This is the domain that the script resides at and will write the RSS feed to. 
-**name**: The name of the person to whom the NetFlix feed belongs.
-**url_base**: The base of the URL that the RSS feed is at.
-**logfile**: The name of the logfile.
-**rss_base**: The base filename of the RSS file.
+**domain**: This is the domain that the script resides at and will write the RSS feed to.   
+**name**: The name of the person to whom the NetFlix feed belongs.  
+**url_base**: The base of the URL that the RSS feed is at.  
+**logfile**: The name of the logfile.  
+**rss_base**: The base filename of the RSS file.  
 
 ### The SMTP Section
 
 This section is for when the script needs to email you that it ran into a problem
 
-**from**: The address from which email will be sent.
-**to**: The address to which email should be sent if there's a problem.
-**user**: The SMTP username used to access email
-**password**: The SMTP password needed to send email.
+**from**: The address from which email will be sent.  
+**to**: The address to which email should be sent if there's a problem.  
+**user**: The SMTP username used to access email.  
+**password**: The SMTP password needed to send email.  
 
 ### The IMAP Section
 
 This section refers to the mailbox to which you're forwarding your email from NetFlix.
 
-**mailbox**: The internet address of the email mailbox.
-**user**: The IMAP username used to read the NetFlix email
-**password**: The IMAP password.
+**mailbox**: The internet address of the email mailbox.  
+**user**: The IMAP username used to read the NetFlix email.  
+**password**: The IMAP password.  
 
 ## Debugging
 
