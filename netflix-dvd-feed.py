@@ -16,7 +16,7 @@ import cgi
 import cfgreader
 
 # Read in custom configurations
-g_cfg = cfgreader.CfgReader(os.path.basename(__file__).replace('.py','.cfg'))
+g_cfg = cfgreader.CfgReader(__file__.replace('.py','.cfg'))
 
 feed_header = """<?xml version="1.0" encoding="iso-8859-1"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
