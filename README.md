@@ -1,6 +1,8 @@
 # netflix-dvd-feed
 netflix-dvd-feed is a script that scans email from NetFlix and creates an RSS feed for DVDs.  It should be run as a cronjob.  It's a replacement for their AtHomeRSS feed, which was discontinued in September 2012.
 
+There's a [description of the framework](http://david.dlma.com/habari/well-mannered-daemon) at my blog.
+
 ## Getting Started
 
 1. Forward all your email from Netflix to a new mailbox, say, netflix@yourdomain.com
