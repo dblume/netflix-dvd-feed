@@ -1,4 +1,4 @@
-[global]
+[main]
 domain = yourdomain.com
 name = John Doe
 url_base = netflixdvds.%(domain)s
