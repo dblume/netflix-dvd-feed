@@ -18,6 +18,8 @@ import cfgreader
 # Read in custom configurations
 g_cfg = cfgreader.CfgReader(__file__.replace('.py','.cfg'))
 
+# These two strings will form the header and individual
+# items of the RSS feed.
 feed_header = """<?xml version="1.0" encoding="iso-8859-1"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
 <channel>
@@ -42,8 +44,7 @@ feed_item = """<item>
 def send_email(subject, message, toaddrs, \
                fromaddr='"%s" <%s>' % (os.path.basename(__file__), 
                                        g_cfg.smtp_from)):
-    """ 
-    Sends Email
+    """ Sends Email
     This function is only used in an emergency.
     """
     smtp = smtplib.SMTP('localhost')
@@ -55,9 +56,7 @@ def send_email(subject, message, toaddrs, \
     smtp.quit()
 
 def write_feed(script_dir, feed_items):
-    """
-    Given a list of feed_items, write an FSS feed.
-    """
+    """ Given a list of feed_items, write an FSS feed. """
     now = time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime())
     index = 0
     do_move = False
@@ -83,9 +82,7 @@ def write_feed(script_dir, feed_items):
     return "Could not update the feed file."
 
 def get_url_from_message(subject, part):
-    """
-    Given a part of an email message, try to find the NetFlix URL within.
-    """
+    """ Given a part of an email message, try to find the NetFlix URL within.  """
     urlpat = re.compile('http://dvd.netflix.com/Movie/\d+')
     txt = str(part)
     matches = urlpat.search(txt)
@@ -94,8 +91,7 @@ def get_url_from_message(subject, part):
     return "OK", matches.group(0)
 
 def main(script_dir,debug):
-    """
-    Fetch all the mail, and try to find messages that
+    """ Fetch all the mail, and try to find messages that
     match a pattern like, "For Wed: Some Movie".
 
     It'll add those movies to the RSS feed, and if that's
