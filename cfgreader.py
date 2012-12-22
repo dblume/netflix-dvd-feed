@@ -14,7 +14,7 @@ class CfgReader(object):
     with the value, "bar".
     """
 
-    class Tuple(object):
+    class Section(object):
         def __setattr__(self, name, value):
             raise Exception("This object is read only")
 
@@ -24,7 +24,7 @@ class CfgReader(object):
             config.readfp(f)
 
         for section in config.sections():
-            s = CfgReader.Tuple()
+            s = CfgReader.Section()
             for option in config.options(section):
                 s.__dict__[option] = config.get(section, option)
             setattr(self, section, s)

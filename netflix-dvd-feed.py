@@ -68,10 +68,10 @@ def write_feed(script_dir, feed_items):
             title = cgi.escape(title)
             guid = "%s+%s+%d" % (url, now, index)
             f.write(feed_item % (title,
-                                  ship_date,
-                                  url,
-                                  guid,
-                                  url, title, ship_date[:-15]))
+                                 ship_date,
+                                 url,
+                                 guid,
+                                 url, title, ship_date[:-15]))
             index += 1
         f.write('</channel></rss>')
         do_move = True
@@ -82,7 +82,7 @@ def write_feed(script_dir, feed_items):
     return "Could not update the feed file."
 
 def get_url_from_message(subject, part):
-    """ Given a part of an email message, try to find the NetFlix URL within.  """
+    """ Given a part of an email message, try to find the NetFlix URL within. """
     urlpat = re.compile('http://dvd.netflix.com/Movie/\d+')
     txt = str(part)
     matches = urlpat.search(txt)
