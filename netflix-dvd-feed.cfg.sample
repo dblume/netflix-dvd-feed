@@ -5,7 +5,7 @@ url_base = netflixdvds.%(domain)s
 logfile = logfile.txt
 rss_base = AtHomeRSS
 [smtp]
-from = dvds_at_home_script@yourdomain.com
+from_addr = dvds_at_home_script@yourdomain.com
 to = johnd@yourdomain.com
 user = smtp_username
 password = mooltipass

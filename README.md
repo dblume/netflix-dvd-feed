@@ -35,7 +35,7 @@ netflix-dvd-feed.cfg looks like this:
     logfile = logfile.txt
     rss_base = AtHomeRSS
     [smtp]
-    from = dvds_at_home_script@yourdomain.com
+    from_addr = dvds_at_home_script@yourdomain.com
     to = johnd@yourdomain.com
     user = smtp_username
     password = mooltipass
@@ -60,7 +60,7 @@ Given the example above, the complete URL for the feed would be `http://netflixd
 
 This section is for when the script needs to email you that it ran into a problem
 
-**from**: The address from which email will be sent.  
+**from_addr**: The address from which email will be sent.  
 **to**: The address to which email should be sent if there's a problem.  
 **user**: The SMTP username used to access email.  
 **password**: The SMTP password needed to send email.  
