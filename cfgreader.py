@@ -10,7 +10,7 @@ class CfgReader(object):
         [section]
         foo = bar
 
-    Then this object will have the member, section.foo,
+    Then this object will have a member, section.foo,
     with the value, "bar".
     """
 
@@ -27,7 +27,5 @@ class CfgReader(object):
             s = CfgReader.Tuple()
             for option in config.options(section):
                 s.__dict__[option] = config.get(section, option)
-#                setattr(s.__class__, option,
-#                        config.get(section, option))
             setattr(self, section, s)
 
