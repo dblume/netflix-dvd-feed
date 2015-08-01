@@ -9,6 +9,7 @@ from_addr = dvds_at_home_script@yourdomain.com
 to = johnd@yourdomain.com
 user = smtp_username
 password = mooltipass
+port = 25
 [imap]
 mailbox = mail.yourdomain.com
 user = netflix@yourdomain.com

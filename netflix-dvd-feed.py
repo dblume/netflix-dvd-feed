@@ -46,7 +46,7 @@ def send_email(subject, msg, toaddrs,
     """ Sends Email
     This function is only used in an emergency.
     """
-    smtp = smtplib.SMTP('localhost')
+    smtp = smtplib.SMTP('localhost', port=g_cfg.smtp.port)
     smtp.login(g_cfg.smtp.user, g_cfg.smtp.password)
     smtp.sendmail(fromaddr, toaddrs,
                   "Content-Type: text/plain; charset=\"us-ascii\"\r\n"
