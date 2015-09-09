@@ -40,6 +40,21 @@ feed_item = """<item>
 """
 
 
+def set_v_print(verbose):
+    """
+    Defines the function v_print.
+    It prints if verbose is true, otherwise, it does nothing.
+    See: http://stackoverflow.com/questions/5980042
+    :param verbose: A bool to determine if v_print will print its args.
+    """
+    global v_print
+    if verbose:
+        def v_print(*s):
+            print ' '.join([i.encode('utf8') for i in s])
+    else:
+        v_print = lambda *s: None
+
+
 def send_email(subject, msg, toaddrs,
                fromaddr='"%s" <%s>' % (os.path.basename(__file__),
                                        g_cfg.smtp.from_addr)):
@@ -82,14 +97,45 @@ def write_feed(script_dir, feed_items):
     return "Could not update the feed file."
 
 
-def get_url_from_message(part):
-    """ Given a part of an email message, try to find the NetFlix URL within.  """
+def titles_from_text_part(part):
+    """ Given a text part of the message, try to get all the titles.
+    They'll be the lines after "WE SHIPPED:" and before "WE RECEIVED" or
+    "***" """
+    titles = list()
+    titles_begin = False
+    txt = str(part)
+    for line in txt.splitlines():
+        if line.startswith("WE SHIPPED"):
+            titles_begin = True
+        elif line.startswith("* Est. arrival") or len(line) < 2:
+            continue
+        elif line.startswith("WE RECEIVED") or line.startswith("*****"):
+            break
+        elif titles_begin == True:
+            titles.append(line.strip())
+            v_print("Found title", line.strip())
+    return titles
+
+
+def get_urls_from_message(part, titles):
+    """ Given a part of an email message, try to find the NetFlix URL within. """
+    urls = list()
     urlpat = re.compile('http://dvd.netflix.com/Movie/\d+')
     txt = str(part)
-    matches = urlpat.search(txt)
-    if matches is None:
-        return "NO", "The body no longer has the same type of URL."
-    return "OK", matches.group(0)
+    subpart_begin = 0
+    for title in titles:
+        pos = txt.find(title, subpart_begin)
+        if pos == -1:
+            return "NO", ["The HTML body no longer has the title in it.",]
+        else:
+            subpart = txt[subpart_begin:pos]
+            subpart_begin = pos
+            matches = urlpat.search(subpart)
+            if matches is None:
+                return "NO", ["The HTML body no longer has the same type of URL.",]
+            v_print("Found URL", matches.group(0))
+            urls.append(matches.group(0))
+    return "OK", urls
 
 
 def main(script_dir):
@@ -118,10 +164,10 @@ def main(script_dir):
         if subject.startswith('Fwd: '):
             subject = subject[5:]
 
-        if subject.startswith("We've received: ") or \
+        if subject.startswith("We received") or \
            subject.startswith("Shipping today!"):
             # We will bypass, but delete this message as recognized
-            # print "Bypassing message", num, subject
+            v_print("Bypassing message", num, subject)
             messages_to_delete.append(num)
             continue
 
@@ -139,21 +185,28 @@ def main(script_dir):
 
         got_url = False
         url = ""
+        titles = None
         for part in msg.walk():
             content_type = part.get_content_type()
-            if content_type == "text/plain" or content_type == "text/html":
+            if content_type == "text/plain":
+                v_print("Processing %s part of the message." % content_type)
+                titles = titles_from_text_part(part)
+        for part in msg.walk():
+            if content_type == "text/html":
+                v_print("Processing %s part of the message." % content_type)
                 # Now find the URL near the "Shipped" line.
-                status, url = get_url_from_message(part)
+                status, urls = get_urls_from_message(part, titles)
                 if status == 'OK':
-                    got_url = True
+                    got_urls = True
                     break
 
-        if not got_url:
-            raise Exception(url)
+        if not got_urls:
+            raise Exception(urls[0])
 
         messages_to_delete.append(num)
         # Append the disc name and movie URL to a list of items
-        feed_items.append((dvd_title, url, msg['Date']))
+        for i in range(len(titles)):
+            feed_items.append((titles[i], urls[i], msg['Date']))
 
     # Ensure the new feed is written
     update_status = "OK"
@@ -177,7 +230,9 @@ if __name__ == '__main__':
     script_dir = os.path.abspath(os.path.dirname(sys.argv[0]))
     parser = ArgumentParser(description="cronjob to create Netflix DVD feed.")
     parser.add_argument('-d', '--debug', action='store_true')
+    parser.add_argument('-v', '--verbose', action='store_true')
     args = parser.parse_args()
+    set_v_print(args.verbose)
 
     start_time = time.time()
     if args.debug:
