@@ -138,7 +138,7 @@ def get_urls_from_message(part, titles):
     return "OK", urls
 
 
-def main(script_dir):
+def main(script_dir, debug):
     """ Fetch all the mail, and try to find messages that
     match a pattern like, "For Wed: Some Movie".
 
@@ -154,7 +154,7 @@ def main(script_dir):
 
     messages_to_delete = []
     feed_items = []
-    for num in data[0].split():
+    for num in data[0].split():  # For each email message...
         status, data = server.fetch(num, '(RFC822)')
         if status != 'OK':
             raise Exception('Fetching message %s resulted in %s' % (num, status))
@@ -171,40 +171,49 @@ def main(script_dir):
             messages_to_delete.append(num)
             continue
 
-        dvd_title = ""
-        if subject.startswith("For ") and subject.find(':') != -1:
-            # Strip off the "For Xxx:". DVD title follows.
-            dvd_title = subject.split(':', 1)[1].strip()
-        elif subject.startswith("We sent you "):
-            # Strip off "We sent you". DVD title is next.
-            dvd_title = subject[12:]
-        else:
+        if not (subject.startswith("For ") and subject.find(':') != -1) and \
+           not subject.startswith("We sent you "):
             print 'Subject "%s" was unexpected, but the script is continuing. ' \
                   'Please take a look at the mailbox.' % subject
             continue
 
-        got_url = False
-        url = ""
+        # From the plain text part of the message, get all the titles...
         titles = None
         for part in msg.walk():
+            # multipart/* are just containers
+            if part.get_content_maintype() == 'multipart':
+                v_print("Skipping multipart part looking for text/plain.")
+                continue
             content_type = part.get_content_type()
             if content_type == "text/plain":
                 v_print("Processing %s part of the message." % content_type)
                 titles = titles_from_text_part(part)
+                break
+            else:
+                v_print("Skipping %s part looking for text/plain." % content_type)
+
+
+        # With the titles, get the URLs from the HTML part.
         for part in msg.walk():
+            # multipart/* are just containers
+            if part.get_content_maintype() == 'multipart':
+                v_print("Skipping multipart part looking for text/html.")
+                continue
+            content_type = part.get_content_type()
             if content_type == "text/html":
                 v_print("Processing %s part of the message." % content_type)
                 # Now find the URL near the "Shipped" line.
                 status, urls = get_urls_from_message(part, titles)
-                if status == 'OK':
-                    got_urls = True
-                    break
-
-        if not got_urls:
-            raise Exception(urls[0])
+                if status != 'OK':
+                    raise Exception(urls[0])
+                if len(urls) != len(titles):
+                    raise Exception("Only got %d URLs for %d titles" % (len(urls), len(titles)))
+                break
+            else:
+                v_print("Skipping %s part looking for text/html." % content_type)
 
         messages_to_delete.append(num)
-        # Append the disc name and movie URL to a list of items
+        # Append the movie names and URLs to a list of items
         for i in range(len(titles)):
             feed_items.append((titles[i], urls[i], msg['Date']))
 
@@ -213,7 +222,7 @@ def main(script_dir):
     if len(feed_items) > 0:
         update_status = write_feed(script_dir, feed_items)
 
-    if update_status.startswith("OK"):
+    if update_status.startswith("OK") and debug == False:
         # Now delete only the messages marked for deletion
         for num in messages_to_delete:
             server.store(num, '+FLAGS', '\\Deleted')
@@ -236,13 +245,13 @@ if __name__ == '__main__':
 
     start_time = time.time()
     if args.debug:
-        message = main(script_dir)
+        message = main(script_dir, args.debug)
     else:
         old_stdout = sys.stdout
         old_stderr = sys.stderr
         sys.stdout = sys.stderr = StringIO.StringIO()
         try:
-            main(script_dir)
+            main(script_dir, args.debug)
         except Exception, e:
             exceptional_text = "Exception: " + str(e.__class__) + " " + str(e)
             print exceptional_text
