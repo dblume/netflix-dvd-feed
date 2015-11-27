@@ -97,6 +97,13 @@ def write_feed(script_dir, feed_items):
     return "Could not update the feed file."
 
 
+def is_line_after_dvd_list(line):
+    """ Returns whether this line is known to come after the
+    list of titles being shipped. """
+    lines = ["WE RECEIVED", "*****", "KEEP SHIPMENTS COMING"]
+    return any(line.startswith(words) for words in lines)
+
+
 def titles_from_text_part(part):
     """ Given a text part of the message, try to get all the titles.
     They'll be the lines after "WE SHIPPED:" and before "WE RECEIVED" or
@@ -109,7 +116,7 @@ def titles_from_text_part(part):
             titles_begin = True
         elif line.startswith("* Est. arrival") or len(line) < 2:
             continue
-        elif line.startswith("WE RECEIVED") or line.startswith("*****"):
+        elif is_line_after_dvd_list(line):
             break
         elif titles_begin == True:
             titles.append(line.strip())
@@ -126,7 +133,7 @@ def get_urls_from_message(part, titles):
     for title in titles:
         pos = txt.find(title, subpart_begin)
         if pos == -1:
-            return "NO", ["The HTML body no longer has the title in it.",]
+            return "NO", ['The HTML body did not have the title "%s" in it.' % (title,),]
         else:
             subpart = txt[subpart_begin:pos]
             subpart_begin = pos
@@ -136,6 +143,16 @@ def get_urls_from_message(part, titles):
             v_print("Found URL", matches.group(0))
             urls.append(matches.group(0))
     return "OK", urls
+
+
+def subject_is_recognized(subject):
+    """ Returns whether this subject line is known to be associated
+    with email that contains a title of a DVD to be shipped.
+    """
+    recognized_subjects = ["We sent you ", "We shipped you "]
+    if any(subject.startswith(words) for words in recognized_subjects):
+        return True
+    return subject.startswith("For ") and subject.find(':') != -1
 
 
 def main(script_dir, debug):
@@ -171,8 +188,7 @@ def main(script_dir, debug):
             messages_to_delete.append(num)
             continue
 
-        if not (subject.startswith("For ") and subject.find(':') != -1) and \
-           not subject.startswith("We sent you "):
+        if not subject_is_recognized(subject):
             print 'Subject "%s" was unexpected, but the script is continuing. ' \
                   'Please take a look at the mailbox.' % subject
             continue
