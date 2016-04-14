@@ -9,6 +9,8 @@ import traceback
 from argparse import ArgumentParser
 import imaplib
 import email
+from email.header import decode_header
+import quopri
 import re
 import cgi
 import cfgreader
@@ -100,7 +102,10 @@ def write_feed(script_dir, feed_items):
 def is_line_after_dvd_list(line):
     """ Returns whether this line is known to come after the
     list of titles being shipped. """
-    lines = ["WE RECEIVED", "*****", "KEEP SHIPMENTS COMING"]
+    lines = ["WE RECEIVED",
+             "*****",
+             "KEEP SHIPMENTS COMING",
+             "WHY DID WE SEND MORE DISCS"]
     return any(line.startswith(words) for words in lines)
 
 
@@ -124,11 +129,22 @@ def titles_from_text_part(part):
     return titles
 
 
+def get_titles_from_html_part(part):
+    """ TODO: See what to do when there are multiple DVDs sent in one message.
+    Maybe use re.split() instead? """
+    titlepat = re.compile('>([^<>]+?)<\/td><\/tr><tr>')
+    txt = quopri.decodestring(part.get_payload())
+    matches = titlepat.search(txt)
+    if matches is None:
+        return "NO", ["The HTML body no longer has the title bordered by the same markup."]
+    return "OK", matches.groups()
+
+
 def get_urls_from_message(part, titles):
     """ Given a part of an email message, try to find the NetFlix URL within. """
     urls = list()
     urlpat = re.compile('http://dvd.netflix.com/Movie/\d+')
-    txt = str(part)
+    txt = quopri.decodestring(part.get_payload())  # Or str(part)
     subpart_begin = 0
     for title in titles:
         pos = txt.find(title, subpart_begin)
@@ -177,6 +193,8 @@ def main(script_dir, debug):
             raise Exception('Fetching message %s resulted in %s' % (num, status))
         msg = email.message_from_string(data[0][1])
         subject = msg['Subject']
+        if subject.startswith('=?UTF-'):
+            subject = decode_header(subject)[0][0]
 
         if subject.startswith('Fwd: '):
             subject = subject[5:]
@@ -195,6 +213,7 @@ def main(script_dir, debug):
 
         # From the plain text part of the message, get all the titles...
         titles = None
+        html_part = None
         for part in msg.walk():
             # multipart/* are just containers
             if part.get_content_maintype() == 'multipart':
@@ -206,8 +225,14 @@ def main(script_dir, debug):
                 titles = titles_from_text_part(part)
                 break
             else:
+                if content_type == "text/html":
+                    html_part = part
                 v_print("Skipping %s part looking for text/plain." % content_type)
 
+        if not titles and html_part is not None:
+            status, titles = get_titles_from_html_part(html_part)
+            if status != 'OK':
+                raise Exception(titles[0])
 
         # With the titles, get the URLs from the HTML part.
         for part in msg.walk():

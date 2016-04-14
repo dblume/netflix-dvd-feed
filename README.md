@@ -5,7 +5,7 @@ There's a [description of the reasons for the framework](http://david.dlma.com/h
 
 ## Getting Started
 
-1. Forward all your email from Netflix to a new mailbox, say, netflix@yourdomain.com
+1. Forward all your email from Netflix (or DVD.com) to a new mailbox, say, netflix@yourdomain.com
 2. Rename netflix-dvd-feed.cfg.sample to netflix-dvd-feed.cfg
 3. Customize the variables in netflix-dvd-feed.cfg (More on this below.)
 4. Set up a cronjob that runs netflix-dvd-feed every day.
