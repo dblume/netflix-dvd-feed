@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import sys
 import os
-import StringIO
+import cStringIO
 import time
 import codecs
 import smtplib
@@ -129,15 +129,51 @@ def titles_from_text_part(part):
     return titles
 
 
-def get_titles_from_html_part(part):
+def get_titles_from_html_part(part, debug):
     """ TODO: See what to do when there are multiple DVDs sent in one message.
     Maybe use re.split() instead? """
-    titlepat = re.compile('>([^<>]+?)<\/td><\/tr><tr>')
-    txt = quopri.decodestring(part.get_payload())
+    titlepat = re.compile('<h2 style="box-sizing(?:[^<>]+?)><a class="medium" href="([^"]+?)" (?:[^<>]+?)>(.+?)</a></h2>', re.MULTILINE)
+    raw_txt = quopri.decodestring(part.get_payload())
+
+    # text will have some lines that start with a space as part of a soft break. Eg.,
+    # 'Stuff ... <a href="h'
+    # ' ttp://www.google.co'
+    # When joined, a space would be inserted in the word "http".
+    # So, when the last line wasn't empty and the new line starts with a space, concat them.
+    txt_io = cStringIO.StringIO()
+    last_line_empty = True
+    for line in raw_txt.splitlines():
+        if len(line) > 0:
+            if last_line_empty or line[0] != ' ':
+                txt_io.write(line)
+            else:
+                txt_io.write(line[1:])
+            last_line_empty = False
+        else:
+            txt_io.write('\n')
+            last_line_empty = True
+    txt = txt_io.getvalue()
+    txt_io.close()
+
+    if debug:
+        n = 0
+        for l in txt.splitlines():
+           print "%03d: \"%s\"" % (n, l)
+           n += 1
+
+    titles = []
+    urls = []
     matches = titlepat.search(txt)
     if matches is None:
-        return "NO", ["The HTML body no longer has the title bordered by the same markup."]
-    return "OK", matches.groups()
+        v_print("Found no titles in html part of message.")
+        return "NO", ["The HTML body no longer has the title bordered by the same markup."], []
+    while matches is not None:
+        urls.append(matches.groups()[0])
+        titles.append(matches.groups()[1])
+        txt = txt[matches.end():]
+        matches = titlepat.search(txt)
+    v_print("Found %d titles: %s" % (len(titles), str(titles)))
+    return "OK", titles, urls
 
 
 def get_urls_from_message(part, titles):
@@ -230,28 +266,29 @@ def main(script_dir, debug):
                 v_print("Skipping %s part looking for text/plain." % content_type)
 
         if not titles and html_part is not None:
-            status, titles = get_titles_from_html_part(html_part)
+            v_print("No titles yet, so searching for them in text/html part.")
+            status, titles, urls = get_titles_from_html_part(html_part, debug)
             if status != 'OK':
                 raise Exception(titles[0])
 
         # With the titles, get the URLs from the HTML part.
-        for part in msg.walk():
-            # multipart/* are just containers
-            if part.get_content_maintype() == 'multipart':
-                v_print("Skipping multipart part looking for text/html.")
-                continue
-            content_type = part.get_content_type()
-            if content_type == "text/html":
-                v_print("Processing %s part of the message." % content_type)
-                # Now find the URL near the "Shipped" line.
-                status, urls = get_urls_from_message(part, titles)
-                if status != 'OK':
-                    raise Exception(urls[0])
-                if len(urls) != len(titles):
-                    raise Exception("Only got %d URLs for %d titles" % (len(urls), len(titles)))
-                break
-            else:
-                v_print("Skipping %s part looking for text/html." % content_type)
+#        for part in msg.walk():
+#            # multipart/* are just containers
+#            if part.get_content_maintype() == 'multipart':
+#                v_print("Skipping multipart part looking for text/html.")
+#                continue
+#            content_type = part.get_content_type()
+#            if content_type == "text/html":
+#                v_print("Processing %s part of the message." % content_type)
+#                # Now find the URL near the "Shipped" line.
+#                status, urls = get_urls_from_message(part, titles)
+#                if status != 'OK':
+#                    raise Exception(urls[0])
+#                if len(urls) != len(titles):
+#                    raise Exception("Only got %d URLs for %d titles" % (len(urls), len(titles)))
+#                break
+#            else:
+#                v_print("Skipping %s part looking for text/html." % content_type)
 
         messages_to_delete.append(num)
         # Append the movie names and URLs to a list of items
@@ -267,7 +304,7 @@ def main(script_dir, debug):
         # Now delete only the messages marked for deletion
         for num in messages_to_delete:
             server.store(num, '+FLAGS', '\\Deleted')
-        server.expunge()
+#        server.expunge()  # DCB TODO DEBUG Temporarily commented out to keep message in Trash
 
     server.close()
     server.logout()
@@ -290,7 +327,7 @@ if __name__ == '__main__':
     else:
         old_stdout = sys.stdout
         old_stderr = sys.stderr
-        sys.stdout = sys.stderr = StringIO.StringIO()
+        sys.stdout = sys.stderr = cStringIO.StringIO()
         try:
             main(script_dir, args.debug)
         except Exception, e:
