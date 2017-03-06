@@ -1,3 +1,8 @@
+[![Code Climate](https://codeclimate.com/github/dblume/netflix-dvd-feed/badges/gpa.svg)](https://codeclimate.com/github/dblume/netflix-dvd-feed)
+[![Issue Count](https://codeclimate.com/github/dblume/netflix-dvd-feed/badges/issue_count.svg)](https://codeclimate.com/github/dblume/netflix-dvd-feed)
+[![License](https://img.shields.io/badge/license-MIT_license-blue.svg)](https://raw.githubusercontent.com/dblume/netflix-dvd-feed/master/LICENSE.txt)
+![python2.x](https://img.shields.io/badge/python-2.x-yellow.svg)
+
 # netflix-dvd-feed
 netflix-dvd-feed is a script that scans email from NetFlix and creates an RSS feed for DVDs.  It should be run as a cronjob.  It's a replacement for their AtHomeRSS feed, which was discontinued in September 2012.
 
@@ -81,6 +86,3 @@ Run the command with the ``--debug`` flag for it to print output directly to std
 
 This software uses the [MIT License](http://opensource.org/licenses/mit-license.php).
 
-Thanks!
-
---David Blume

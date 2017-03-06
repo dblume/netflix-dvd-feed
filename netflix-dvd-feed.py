@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 import sys
 import os
 import cStringIO
@@ -130,8 +130,7 @@ def titles_from_text_part(part):
 
 
 def get_titles_from_html_part(part, debug):
-    """ TODO: See what to do when there are multiple DVDs sent in one message.
-    Maybe use re.split() instead? """
+    """ Gets the titles *and* URLs with the same regex. """
     titlepat = re.compile('<h2 style="box-sizing(?:[^<>]+?)><a class="medium" href="([^"]+?)" (?:[^<>]+?)>(.+?)</a></h2>', re.MULTILINE)
     raw_txt = quopri.decodestring(part.get_payload())
 
@@ -174,27 +173,6 @@ def get_titles_from_html_part(part, debug):
         matches = titlepat.search(txt)
     v_print("Found %d titles: %s" % (len(titles), str(titles)))
     return "OK", titles, urls
-
-
-def get_urls_from_message(part, titles):
-    """ Given a part of an email message, try to find the NetFlix URL within. """
-    urls = list()
-    urlpat = re.compile('http://dvd.netflix.com/Movie/\d+')
-    txt = quopri.decodestring(part.get_payload())  # Or str(part)
-    subpart_begin = 0
-    for title in titles:
-        pos = txt.find(title, subpart_begin)
-        if pos == -1:
-            return "NO", ['The HTML body did not have the title "%s" in it.' % (title,),]
-        else:
-            subpart = txt[subpart_begin:pos]
-            subpart_begin = pos
-            matches = urlpat.search(subpart)
-            if matches is None:
-                return "NO", ["The HTML body no longer has the same type of URL.",]
-            v_print("Found URL", matches.group(0))
-            urls.append(matches.group(0))
-    return "OK", urls
 
 
 def subject_is_recognized(subject):
@@ -270,25 +248,6 @@ def main(script_dir, debug):
             status, titles, urls = get_titles_from_html_part(html_part, debug)
             if status != 'OK':
                 raise Exception(titles[0])
-
-        # With the titles, get the URLs from the HTML part.
-#        for part in msg.walk():
-#            # multipart/* are just containers
-#            if part.get_content_maintype() == 'multipart':
-#                v_print("Skipping multipart part looking for text/html.")
-#                continue
-#            content_type = part.get_content_type()
-#            if content_type == "text/html":
-#                v_print("Processing %s part of the message." % content_type)
-#                # Now find the URL near the "Shipped" line.
-#                status, urls = get_urls_from_message(part, titles)
-#                if status != 'OK':
-#                    raise Exception(urls[0])
-#                if len(urls) != len(titles):
-#                    raise Exception("Only got %d URLs for %d titles" % (len(urls), len(titles)))
-#                break
-#            else:
-#                v_print("Skipping %s part looking for text/html." % content_type)
 
         messages_to_delete.append(num)
         # Append the movie names and URLs to a list of items
