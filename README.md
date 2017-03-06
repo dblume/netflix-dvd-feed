@@ -1,5 +1,5 @@
 [![Code Climate](https://codeclimate.com/github/dblume/netflix-dvd-feed/badges/gpa.svg)](https://codeclimate.com/github/dblume/netflix-dvd-feed)
-[![Issue Count](https://codeclimate.com/github/dblume/netflix-dvd-feed/badges/issue_count.svg)](https://codeclimate.com/github/dblume/netflix-dvd-feed)
+[![Issue Count](https://codeclimate.com/github/dblume/netflix-dvd-feed/badges/issue_count.svg)](https://codeclimate.com/github/dblume/netflix-dvd-feed/issues)
 [![License](https://img.shields.io/badge/license-MIT_license-blue.svg)](https://raw.githubusercontent.com/dblume/netflix-dvd-feed/master/LICENSE.txt)
 ![python2.x](https://img.shields.io/badge/python-2.x-yellow.svg)
 
