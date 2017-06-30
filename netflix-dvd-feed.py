@@ -175,27 +175,6 @@ def get_titles_from_html_part(part, debug):
     return "OK", titles, urls
 
 
-def get_urls_from_message(part, titles):
-    """ Given a part of an email message, try to find the NetFlix URL within. """
-    urls = list()
-    urlpat = re.compile('http://dvd.netflix.com/Movie/\d+')
-    txt = quopri.decodestring(part.get_payload())  # Or str(part)
-    subpart_begin = 0
-    for title in titles:
-        pos = txt.find(title, subpart_begin)
-        if pos == -1:
-            return "NO", ['The HTML body did not have the title "%s" in it.' % (title,),]
-        else:
-            subpart = txt[subpart_begin:pos]
-            subpart_begin = pos
-            matches = urlpat.search(subpart)
-            if matches is None:
-                return "NO", ["The HTML body no longer has the same type of URL.",]
-            v_print("Found URL", matches.group(0))
-            urls.append(matches.group(0))
-    return "OK", urls
-
-
 def subject_is_recognized(subject):
     """ Returns whether this subject line is known to be associated
     with email that contains a title of a DVD to be shipped.
