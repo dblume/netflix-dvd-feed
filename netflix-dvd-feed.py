@@ -14,6 +14,7 @@ import quopri
 import re
 import cgi
 import cfgreader
+import urllib2
 
 # Read in custom configurations
 g_cfg = cfgreader.CfgReader(__file__.replace('.py', '.cfg'))
@@ -131,13 +132,12 @@ def titles_from_text_part(part):
 
 def get_titles_from_html_part(part, debug):
     """ Gets the titles *and* URLs with the same regex. """
-    titlepat = re.compile('<h2 style="box-sizing(?:[^<>]+?)><a class="medium" href="([^"]+?)" (?:[^<>]+?)>(.+?)</a></h2>', re.MULTILINE)
+    titlepat = re.compile('<h2 style="box-sizing(?:[^<>]+?)><a class="(?:[m_\-\d]*?)medium" href="([^"]+?)" (?:[^<>]+?)>(.+?)</a></h2>', re.MULTILINE)
     raw_txt = quopri.decodestring(part.get_payload())
 
-    # text will have some lines that start with a space as part of a soft break. Eg.,
+    # txt will have some lines that start with a space as part of a soft break. Eg.,
     # 'Stuff ... <a href="h'
     # ' ttp://www.google.co'
-    # When joined, a space would be inserted in the word "http".
     # So, when the last line wasn't empty and the new line starts with a space, concat them.
     txt_io = cStringIO.StringIO()
     last_line_empty = True
@@ -168,11 +168,32 @@ def get_titles_from_html_part(part, debug):
         return "NO", ["The HTML body no longer has the title bordered by the same markup."], []
     while matches is not None:
         urls.append(matches.groups()[0])
-        titles.append(matches.groups()[1])
+        titles.append(matches.groups()[1].strip())
         txt = txt[matches.end():]
         matches = titlepat.search(txt)
     v_print("Found %d titles: %s" % (len(titles), str(titles)))
     return "OK", titles, urls
+
+
+def get_urls_from_message(part, titles):
+    """ Given a part of an email message, try to find the NetFlix URL within. """
+    urls = list()
+    urlpat = re.compile('http://dvd.netflix.com/Movie/\d+')
+    txt = quopri.decodestring(part.get_payload())  # Or str(part)
+    subpart_begin = 0
+    for title in titles:
+        pos = txt.find(title, subpart_begin)
+        if pos == -1:
+            return "NO", ['The HTML body did not have the title "%s" in it.' % (title,),]
+        else:
+            subpart = txt[subpart_begin:pos]
+            subpart_begin = pos
+            matches = urlpat.search(subpart)
+            if matches is None:
+                return "NO", ["The HTML body no longer has the same type of URL.",]
+            v_print("Found URL", matches.group(0))
+            urls.append(matches.group(0))
+    return "OK", urls
 
 
 def subject_is_recognized(subject):
@@ -183,6 +204,17 @@ def subject_is_recognized(subject):
     if any(subject.startswith(words) for words in recognized_subjects):
         return True
     return subject.startswith("For ") and subject.find(':') != -1
+
+
+def resolve_redirects(url):
+    """ Returns the final URL of a potential redirect """
+    req = urllib2.Request(url)
+    try:
+        res = urllib2.urlopen(req)
+        url = res.geturl()
+    except:
+        pass
+    return url
 
 
 def main(script_dir, debug):
@@ -225,6 +257,7 @@ def main(script_dir, debug):
                   'Please take a look at the mailbox.' % subject
             continue
 
+        v_print("Processing message", num, subject)
         # From the plain text part of the message, get all the titles...
         titles = None
         html_part = None
@@ -235,13 +268,13 @@ def main(script_dir, debug):
                 continue
             content_type = part.get_content_type()
             if content_type == "text/plain":
-                v_print("Processing %s part of the message." % content_type)
-                titles = titles_from_text_part(part)
-                break
+                v_print("Skipping %s part of the message (But maybe check how it looks)." % content_type)
+                # titles = titles_from_text_part(part)
+                # break
             else:
                 if content_type == "text/html":
                     html_part = part
-                v_print("Skipping %s part looking for text/plain." % content_type)
+                v_print("Skipping %s part looking for text/plain, but may process later." % content_type)
 
         if not titles and html_part is not None:
             v_print("No titles yet, so searching for them in text/html part.")
@@ -252,7 +285,7 @@ def main(script_dir, debug):
         messages_to_delete.append(num)
         # Append the movie names and URLs to a list of items
         for i in range(len(titles)):
-            feed_items.append((titles[i], urls[i], msg['Date']))
+            feed_items.append((titles[i], resolve_redirects(urls[i]), msg['Date']))
 
     # Ensure the new feed is written
     update_status = "OK"
@@ -263,7 +296,7 @@ def main(script_dir, debug):
         # Now delete only the messages marked for deletion
         for num in messages_to_delete:
             server.store(num, '+FLAGS', '\\Deleted')
-#        server.expunge()  # DCB TODO DEBUG Temporarily commented out to keep message in Trash
+        server.expunge()
 
     server.close()
     server.logout()
