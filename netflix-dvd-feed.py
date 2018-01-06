@@ -3,7 +3,6 @@ import sys
 import os
 import io
 import time
-import codecs
 import smtplib
 import traceback
 from argparse import ArgumentParser
@@ -97,77 +96,20 @@ def write_feed(script_dir, feed_items):
     return "Could not update the feed file."
 
 
-def is_line_after_dvd_list(line):
-    """ Returns whether this line is known to come after the
-    list of titles being shipped. """
-    lines = ["WE RECEIVED",
-             "*****",
-             "KEEP SHIPMENTS COMING",
-             "WHY DID WE SEND MORE DISCS"]
-    return any(line.startswith(words) for words in lines)
-
-
-def titles_from_text_part(part):
-    """ Given a text part of the message, try to get all the titles.
-    They'll be the lines after "WE SHIPPED:" and before "WE RECEIVED" or
-    "***" """
-    titles = list()
-    titles_begin = False
-    txt = str(part)
-    for line in txt.splitlines():
-        if line.startswith("WE SHIPPED"):
-            titles_begin = True
-        elif line.startswith("* Est. arrival") or len(line) < 2:
-            continue
-        elif is_line_after_dvd_list(line):
-            break
-        elif titles_begin == True:
-            titles.append(line.strip())
-            v_print("Found title", line.strip())
-    return titles
-
-
 def get_titles_from_html_part(part, charset, debug):
     """ Gets the titles *and* URLs with the same regex. """
-    if sys.version_info.major < 3:
-        titlepat = re.compile('<h2 style="box-sizing(?:[^<>]+?)><a class="(?:[m_\-\d]*?)medium" href="([^"]+?)" (?:[^<>]+?)>(.+?)</a></h2>', re.MULTILINE)
-        raw_txt = quopri.decodestring(part.get_payload())
-        # txt will have some lines that start with a space
-        # as part of a soft break. Eg.,
-        #
-        # 'Stuff ... <a href="h'
-        # ' ttp://www.google.co'
-        #
-        # So, when the last line wasn't empty and the new
-        # line starts with a space, concat them.
-        txt_io = io.StringIO()
-        last_line_empty = True
-        for line in raw_txt.splitlines():
-            if len(line) > 0:
-                if last_line_empty or line[0] != ' ':
-                    txt_io.write(line)
-                else:
-                    txt_io.write(line[1:])
-                last_line_empty = False
-            else:
-                txt_io.write('\n')
-                last_line_empty = True
-        txt = txt_io.getvalue()
-        txt_io.close()
-    else:
-        # titlepat = re.compile('<h2 style="box-sizing(?:[^<>]+?)><a class="(?:[m_\-\d]*?)medium" href="([^"]+?)" (?:[^<>]+?)>(.+?)(?:[\s]*)</a></h2>', re.MULTILINE)
-        titlepat = re.compile(
-            """<h2\ style="box-sizing
-               (?:[^<>]+?)     # No-capture nongreedy all the style
-               ><a\ class="
-               (?:[m_\-\d]*?)  # Sometimes it's a modified class name
-               medium"\ href="
-               ([^"]+?)"       # Capture the URL, everything up to the quotes
-               \ (?:[^<>]+?)>  # Ignore more style stuff, up to a >
-               (.+?)           # Capture the title
-               [\s]*           # whitespace, incl newlines
-               </a></h2>""", re.MULTILINE | re.VERBOSE)
-        txt = part.get_payload()
+    titlepat = re.compile(
+        """<h2\ style="box-sizing
+           (?:[^<>]+?)     # No-capture nongreedy all the style
+           ><a\ class="
+           (?:[m_\-\d]*?)  # Sometimes it's a modified class name
+           medium"\ href="
+           ([^"]+?)"       # Capture the URL, everything up to the quotes
+           \ (?:[^<>]+?)>  # Ignore more style stuff, up to a >
+           (.+?)           # Capture the title
+           [\s]*           # whitespace, incl newlines
+           </a></h2>""", re.MULTILINE | re.VERBOSE)
+    txt = part.get_payload()
 
     if debug:
         n = 0
@@ -180,7 +122,9 @@ def get_titles_from_html_part(part, charset, debug):
     matches = titlepat.search(txt)
     if matches is None:
         v_print("Found no titles in html part of message.")
-        return "NO", ["The HTML body no longer has the title bordered by the same markup."], []
+        return ("NO",
+               ["The HTML doesn't border the title with the expected markup."],
+               [])
     while matches is not None:
         urls.append(matches.groups()[0])
         titles.append(html.unescape(matches.groups()[1].strip()))
@@ -230,7 +174,7 @@ def main(script_dir, debug):
     for num in data[0].split():  # For each email message...
         status, data = server.fetch(num, '(RFC822)')
         if status != 'OK':
-            raise Exception('Fetching message %s resulted in %s' % (num, status))
+            raise Exception('Fetch message %s resulted in %s' % (num, status))
         msg = email.message_from_bytes(data[0][1])
         subject = msg['Subject']
         if subject.startswith('=?UTF-'):
@@ -247,40 +191,32 @@ def main(script_dir, debug):
             continue
 
         if not subject_is_recognized(subject):
-            print('Subject "%s" was unexpected, but the script is continuing. ' \
+            print('Subject "%s" was unexpected, but the script is continuing. '
                   'Please take a look at the mailbox.' % subject)
             continue
 
         v_print("Processing message", num, subject)
-        # From the plain text part of the message, get all the titles...
         titles = None
-        html_part = None
         for part in msg.walk():
             # multipart/* are just containers
             if part.get_content_maintype() == 'multipart':
-                v_print("Skipping multipart part looking for text/plain.")
+                v_print("Skipping multipart part looking for text/html.")
                 continue
             content_type = part.get_content_type()
             if content_type == "text/plain":
-                v_print("Skipping %s part of the message (But maybe check how it looks)." % content_type)
-                # titles = titles_from_text_part(part)
-                # break
-            else:
-                if content_type == "text/html":
-                    html_part = part
-                    charset = part.get_content_charset('UTF-8')
-                v_print("Skipping %s part looking for text/plain, but may process later." % content_type)
-
-        if not titles and html_part is not None:
-            v_print("No titles yet, so searching for them in text/html part.")
-            status, titles, urls = get_titles_from_html_part(html_part, charset, debug)
-            if status != 'OK':
-                raise Exception(titles[0])
+                print("Netflix started using %s again!" % content_type)
+                print("Consider restoring simpler code from git repo!")
+            elif content_type == "text/html":
+                status, titles, urls = get_titles_from_html_part(part,
+                                      part.get_content_charset('utf-8'), debug)
+                if status != 'OK':
+                    raise Exception(titles[0])
 
         messages_to_delete.append(num)
         # Append the movie names and URLs to a list of items
         for i in range(len(titles)):
-            feed_items.append((titles[i], resolve_redirects(urls[i]), msg['Date']))
+            feed_items.append((titles[i], resolve_redirects(urls[i]),
+                               msg['Date']))
 
     # Ensure the new feed is written
     update_status = "OK"
@@ -335,7 +271,7 @@ if __name__ == '__main__':
 
     # Finally, let's save this to a statistics page
     if os.path.exists(os.path.join(script_dir, g_cfg.main.logfile)):
-        with codecs.open(os.path.join(script_dir, g_cfg.main.logfile), 'r', 'utf-8') as f:
+        with open(os.path.join(script_dir, g_cfg.main.logfile), 'r', encoding='utf-8') as f:
             lines = f.readlines()
     else:
         lines = []
@@ -344,5 +280,5 @@ if __name__ == '__main__':
     lines.insert(0, u"%s %3.0fs %s\n" % (time.strftime('%Y-%m-%d, %H:%M', time.localtime()),
                                          time.time() - start_time,
                                          status))
-    with codecs.open(os.path.join(script_dir, g_cfg.main.logfile), 'w', 'utf-8') as f:
+    with open(os.path.join(script_dir, g_cfg.main.logfile), 'w', encoding='utf-8') as f:
         f.writelines(lines)
