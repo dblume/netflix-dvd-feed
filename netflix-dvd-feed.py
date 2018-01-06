@@ -1,7 +1,7 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import sys
 import os
-import cStringIO
+import io
 import time
 import codecs
 import smtplib
@@ -14,14 +14,15 @@ import quopri
 import re
 import cgi
 import cfgreader
-import urllib2
+import urllib.request
+import html
 
 # Read in custom configurations
 g_cfg = cfgreader.CfgReader(__file__.replace('.py', '.cfg'))
 
 # These two strings will form the header and individual
 # items of the RSS feed.
-feed_header = """<?xml version="1.0" encoding="iso-8859-1"?>
+feed_header = """<?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
 <channel>
 <title>DVDs shipped for %s</title>
@@ -51,11 +52,7 @@ def set_v_print(verbose):
     :param verbose: A bool to determine if v_print will print its args.
     """
     global v_print
-    if verbose:
-        def v_print(*s):
-            print ' '.join([i.encode('utf8') for i in s])
-    else:
-        v_print = lambda *s: None
+    v_print = print if verbose else lambda *a, **k: None
 
 
 def send_email(subject, msg, toaddrs,
@@ -81,17 +78,17 @@ def write_feed(script_dir, feed_items):
     temp_fname = os.path.join(script_dir, g_cfg.main.rss_base + '.temp.xml')
     dest_fname = os.path.join(script_dir, g_cfg.main.rss_base + '.xml')
     with open(temp_fname, 'wb') as f:
-        f.write(feed_header % (now,))
+        f.write(bytes(feed_header % (now,), 'utf-8'))
         for title, url, ship_date in reversed(feed_items):
             title = cgi.escape(title)
             guid = "%s+%s+%d" % (url, now, index)
-            f.write(feed_item % (title,
+            f.write(bytes(feed_item % (title,
                                  ship_date,
                                  url,
                                  guid,
-                                 url, title, ship_date[:-15]))
+                                 url, title, ship_date[:-15]), 'utf-8'))
             index += 1
-        f.write('</channel></rss>')
+        f.write(bytes('</channel></rss>', 'utf-8'))
         do_move = True
     if do_move:
         os.rename(temp_fname, dest_fname)
@@ -130,34 +127,52 @@ def titles_from_text_part(part):
     return titles
 
 
-def get_titles_from_html_part(part, debug):
+def get_titles_from_html_part(part, charset, debug):
     """ Gets the titles *and* URLs with the same regex. """
-    titlepat = re.compile('<h2 style="box-sizing(?:[^<>]+?)><a class="(?:[m_\-\d]*?)medium" href="([^"]+?)" (?:[^<>]+?)>(.+?)</a></h2>', re.MULTILINE)
-    raw_txt = quopri.decodestring(part.get_payload())
-
-    # txt will have some lines that start with a space as part of a soft break. Eg.,
-    # 'Stuff ... <a href="h'
-    # ' ttp://www.google.co'
-    # So, when the last line wasn't empty and the new line starts with a space, concat them.
-    txt_io = cStringIO.StringIO()
-    last_line_empty = True
-    for line in raw_txt.splitlines():
-        if len(line) > 0:
-            if last_line_empty or line[0] != ' ':
-                txt_io.write(line)
+    if sys.version_info.major < 3:
+        titlepat = re.compile('<h2 style="box-sizing(?:[^<>]+?)><a class="(?:[m_\-\d]*?)medium" href="([^"]+?)" (?:[^<>]+?)>(.+?)</a></h2>', re.MULTILINE)
+        raw_txt = quopri.decodestring(part.get_payload())
+        # txt will have some lines that start with a space
+        # as part of a soft break. Eg.,
+        #
+        # 'Stuff ... <a href="h'
+        # ' ttp://www.google.co'
+        #
+        # So, when the last line wasn't empty and the new
+        # line starts with a space, concat them.
+        txt_io = io.StringIO()
+        last_line_empty = True
+        for line in raw_txt.splitlines():
+            if len(line) > 0:
+                if last_line_empty or line[0] != ' ':
+                    txt_io.write(line)
+                else:
+                    txt_io.write(line[1:])
+                last_line_empty = False
             else:
-                txt_io.write(line[1:])
-            last_line_empty = False
-        else:
-            txt_io.write('\n')
-            last_line_empty = True
-    txt = txt_io.getvalue()
-    txt_io.close()
+                txt_io.write('\n')
+                last_line_empty = True
+        txt = txt_io.getvalue()
+        txt_io.close()
+    else:
+        # titlepat = re.compile('<h2 style="box-sizing(?:[^<>]+?)><a class="(?:[m_\-\d]*?)medium" href="([^"]+?)" (?:[^<>]+?)>(.+?)(?:[\s]*)</a></h2>', re.MULTILINE)
+        titlepat = re.compile(
+            """<h2\ style="box-sizing
+               (?:[^<>]+?)     # No-capture nongreedy all the style
+               ><a\ class="
+               (?:[m_\-\d]*?)  # Sometimes it's a modified class name
+               medium"\ href="
+               ([^"]+?)"       # Capture the URL, everything up to the quotes
+               \ (?:[^<>]+?)>  # Ignore more style stuff, up to a >
+               (.+?)           # Capture the title
+               [\s]*           # whitespace, incl newlines
+               </a></h2>""", re.MULTILINE | re.VERBOSE)
+        txt = part.get_payload()
 
     if debug:
         n = 0
         for l in txt.splitlines():
-           print "%03d: \"%s\"" % (n, l)
+           print("%03d: \"%s\"" % (n, l))
            n += 1
 
     titles = []
@@ -168,7 +183,7 @@ def get_titles_from_html_part(part, debug):
         return "NO", ["The HTML body no longer has the title bordered by the same markup."], []
     while matches is not None:
         urls.append(matches.groups()[0])
-        titles.append(matches.groups()[1].strip())
+        titles.append(html.unescape(matches.groups()[1].strip()))
         txt = txt[matches.end():]
         matches = titlepat.search(txt)
     v_print("Found %d titles: %s" % (len(titles), str(titles)))
@@ -187,11 +202,11 @@ def subject_is_recognized(subject):
 
 def resolve_redirects(url):
     """ Returns the final URL of a potential redirect """
-    req = urllib2.Request(url)
     try:
-        res = urllib2.urlopen(req)
+        res = urllib.request.urlopen(url)
         url = res.geturl()
     except:
+        print("Failed to resolve redirect of", url)
         pass
     return url
 
@@ -216,7 +231,7 @@ def main(script_dir, debug):
         status, data = server.fetch(num, '(RFC822)')
         if status != 'OK':
             raise Exception('Fetching message %s resulted in %s' % (num, status))
-        msg = email.message_from_string(data[0][1])
+        msg = email.message_from_bytes(data[0][1])
         subject = msg['Subject']
         if subject.startswith('=?UTF-'):
             subject = decode_header(subject)[0][0]
@@ -232,8 +247,8 @@ def main(script_dir, debug):
             continue
 
         if not subject_is_recognized(subject):
-            print 'Subject "%s" was unexpected, but the script is continuing. ' \
-                  'Please take a look at the mailbox.' % subject
+            print('Subject "%s" was unexpected, but the script is continuing. ' \
+                  'Please take a look at the mailbox.' % subject)
             continue
 
         v_print("Processing message", num, subject)
@@ -253,11 +268,12 @@ def main(script_dir, debug):
             else:
                 if content_type == "text/html":
                     html_part = part
+                    charset = part.get_content_charset('UTF-8')
                 v_print("Skipping %s part looking for text/plain, but may process later." % content_type)
 
         if not titles and html_part is not None:
             v_print("No titles yet, so searching for them in text/html part.")
-            status, titles, urls = get_titles_from_html_part(html_part, debug)
+            status, titles, urls = get_titles_from_html_part(html_part, charset, debug)
             if status != 'OK':
                 raise Exception(titles[0])
 
@@ -279,7 +295,7 @@ def main(script_dir, debug):
 
     server.close()
     server.logout()
-    print update_status
+    print(update_status)
     return update_status
 
 
@@ -298,20 +314,20 @@ if __name__ == '__main__':
     else:
         old_stdout = sys.stdout
         old_stderr = sys.stderr
-        sys.stdout = sys.stderr = cStringIO.StringIO()
+        sys.stdout = sys.stderr = io.StringIO()
         try:
             main(script_dir, args.debug)
-        except Exception, e:
+        except Exception as e:
             exceptional_text = "Exception: " + str(e.__class__) + " " + str(e)
-            print exceptional_text
+            print(exceptional_text)
             traceback.print_exc(file=sys.stdout)
             try:
                 send_email('Exception thrown in %s' % (os.path.basename(__file__),),
                            exceptional_text + "\n" + traceback.format_exc(),
                            (g_cfg.smtp.to,))
-            except Exception, e:
+            except Exception as e:
                 traceback.print_exc(file=sys.stdout)
-                print "Could not send email to notify you of the exception. :("
+                print("Could not send email to notify you of the exception. :(")
 
         message = sys.stdout.getvalue()
         sys.stdout = old_stdout
@@ -324,7 +340,7 @@ if __name__ == '__main__':
     else:
         lines = []
     lines = lines[:168]  # Just keep some recent lines
-    status = u'\n                       '.join(message.decode('utf-8').splitlines())
+    status = u'\n                       '.join(message.splitlines())
     lines.insert(0, u"%s %3.0fs %s\n" % (time.strftime('%Y-%m-%d, %H:%M', time.localtime()),
                                          time.time() - start_time,
                                          status))
