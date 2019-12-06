@@ -109,7 +109,8 @@ def get_titles_from_html_part(part, charset, debug):
            (.+?)           # Capture the title
            [\s]*           # whitespace, incl newlines
            </a></h2>""", re.MULTILINE | re.VERBOSE)
-    txt = part.get_payload()
+    # txt = quopri.decodestring(part.get_payload()).decode(encoding=charset)
+    txt = part.get_payload(decode=True).decode(encoding=charset)
 
     if debug:
         n = 0
@@ -138,7 +139,7 @@ def subject_is_recognized(subject):
     """ Returns whether this subject line is known to be associated
     with email that contains a title of a DVD to be shipped.
     """
-    recognized_subjects = ["We sent you ", "We shipped you "]
+    recognized_subjects = ["We sent you ", "We shipped you ", "We shipped the last "]
     if any(subject.startswith(words) for words in recognized_subjects):
         return True
     return subject.startswith("For ") and subject.find(':') != -1
