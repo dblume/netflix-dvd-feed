@@ -178,8 +178,9 @@ def main(script_dir, debug):
             raise Exception('Fetch message %s resulted in %s' % (num, status))
         msg = email.message_from_bytes(data[0][1])
         subject = msg['Subject']
-        if subject.startswith('=?UTF-'):
-            subject = decode_header(subject)[0][0]
+        if subject.startswith('=?UTF-') or subject.startswith('=?utf-'):
+            subject, encoding = decode_header(subject)[0]
+            subject = subject.decode(encoding)
 
         if subject.startswith('Fwd: '):
             subject = subject[5:]
