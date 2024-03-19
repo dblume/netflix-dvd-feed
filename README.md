@@ -1,7 +1,7 @@
 [![Code Climate](https://codeclimate.com/github/dblume/netflix-dvd-feed/badges/gpa.svg)](https://codeclimate.com/github/dblume/netflix-dvd-feed)
 [![Issue Count](https://codeclimate.com/github/dblume/netflix-dvd-feed/badges/issue_count.svg)](https://codeclimate.com/github/dblume/netflix-dvd-feed/issues)
 [![License](https://img.shields.io/badge/license-MIT_license-blue.svg)](https://raw.githubusercontent.com/dblume/netflix-dvd-feed/main/LICENSE.txt)
-![python3.x](https://img.shields.io/badge/python-3.x-green.svg) [![No Maintenance Intended](http://unmaintained.tech/badge.svg)](http://unmaintained.tech/)
+![python3.x](https://img.shields.io/badge/python-3.x-green.svg) [![No Maintenance Intended](https://unmaintained.tech/badge.svg)](https://unmaintained.tech/)
 
 # netflix-dvd-feed
 netflix-dvd-feed is a script that scans email from NetFlix and creates an RSS feed for DVDs.  It should be run as a cronjob.  It's a replacement for their AtHomeRSS feed, which was discontinued in September 2012.
